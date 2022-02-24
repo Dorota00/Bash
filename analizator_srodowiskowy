@@ -1,0 +1,68 @@
+if [[ ! -f "$1" || $# -lt 2 || $# -gt 3 ]] ; then
+	echo "File $1 does not exist or incorrect number of parameters" 1>&2
+	exit 
+fi
+if [ $# -eq 3  ] && [ $3 -ge 2 ] && [ $3 -le 10 ] ; then
+	header="$3"
+else
+echo "No correct number of lines in header. Using default value:3." 1>&2
+fi
+
+head -n ${header:-3} $1 | cut -f 2- -d ';' > temp.txt
+head -n 1 temp.txt > name.txt
+sed -n '2p' temp.txt  > zaniecz.txt
+
+nr_data_fields=$(head -n 1 $1 | grep -o ";" | wc -l)
+i=1
+for i in $(seq 1 $nr_data_fields)
+do
+	name[i]=$(cut -f $i -d ';' name.txt)
+	zaniecz[i]=$(cut -f $i -d ';' zaniecz.txt)	
+	((i+=1))
+done
+
+tail -n +$((header+1)) $1 | cut -c  1-7 | sort | uniq -d > date.txt
+tail -n +$((header+1)) $1 | cut -c  1-7 | sort | uniq -u >> date.txt
+
+diff_dates=1
+for el in $(cat date.txt)
+do
+	year=${el:0:4}
+	year[diff_dates]=$year
+	month=${el:5:2}
+	month[diff_dates]=$month
+	((diff_dates+=1))
+done 
+
+((diff_dates-=1))
+for i in $(seq 1 $diff_dates)
+do
+	for j in $(seq 1 $nr_data_fields)
+	do
+		mkdir -p $2/${year[i]}/${month[i]}/"${name[j]}"
+		((j+=1))
+	done
+((i+=1))
+done
+
+rm temp.txt name.txt zaniecz.txt date.txt
+
+while read -r line
+do
+	for i in $(seq 1 $diff_dates)
+	do
+		if [[ ${year[i]} == $(cut -c 1-4 <<< "$line") ]] && [[ ${month[i]} == $(cut -c 6-7 <<< "$line") ]]
+		then
+			for j in $(seq 1 $nr_data_fields)
+			do
+				el=$(cut -f $((j+1)) -d ';' <<< "$line")
+				if [ $el ] ; then
+					echo $el >> $2/${year[i]}/${month[i]}/"${name[j]}"/$(cut -c 9-10 <<< "$line")-"${zaniecz[j]}".txt
+				fi
+				((j+=1))
+			done
+		break		
+		fi
+		((i+=1))
+	done
+done < $1

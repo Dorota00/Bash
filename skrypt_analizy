@@ -1,0 +1,55 @@
+if [ $# != 3 ] ; then
+	echo "Incorrect number of parameters." 1>&2
+	exit
+fi
+
+year1=`expr ${1::4}`
+year2=`expr ${2::4}`
+month1=`expr ${1:5:2}`
+month2=`expr ${2:5:2}`
+day1=`expr ${1:8:2}`
+day2=`expr ${2:8:2}`
+
+while [[ $year1 -le $year2 ]]
+do
+	while [[ ( $month1 -le $month2 ) || ( $year1 -lt $year2 )  && ( $month1 -gt $month2 ) && ( $month1 -le 12 ) ]]
+	do
+		while [[ ( $day1 -le $day2 ) || ( $month1 -lt $month2 ) && ( $day1 -gt $day2 ) ]]
+		do
+			name=$(printf "%02d" $day1)-$3.txt
+			find ./$year1/$(printf "%02d" $month1)/* -maxdepth 0 >temp.txt
+			while read -r catalog
+			do
+				find "$catalog" -name "$name" -exec cat {} \; >> data.txt
+				if [[ ! -f "$catalog/$name" ]] ; then
+					echo "brak danych lub pliku $catalog/$name" 1>&2
+				fi
+			done <temp.txt
+			
+				if [ $day1 -eq 31 ] ; then
+                                day1=1
+                                break
+                        fi
+			((day1++))
+		done
+		if [ $month1 -eq 12 ] ; then
+			month1=1
+			break
+		fi
+		((month1++))
+	done
+	((year1++))
+done
+
+min=$( sort -n data.txt | head -n 1 )
+max=$( sort -n data.txt | tail -n 1 )
+sum=$(paste -sd+ data.txt | bc)
+lines=$( wc -l data.txt | cut -f 1 -d ' ')
+avg=`echo "scale=1;($sum/$lines)" | bc -l `
+
+
+echo -e "min\tavg\tmax"
+echo -e "$min\t$avg\t$max"
+
+rm data.txt
+rm temp.txt
